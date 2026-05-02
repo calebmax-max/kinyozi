@@ -1,0 +1,29 @@
+{
+  "name": "kinyozi",
+  "version": "1.0.0",
+  "description": "Barber shop management system",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.1",
+    "lucide-react": "^0.344.0",
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "keywords": [
+    "barber",
+    "booking",
+    "mpesa"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/react": "19.2.14"
+  }
+}
