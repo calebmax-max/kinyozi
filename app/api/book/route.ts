@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildWhatsAppLink } from '@/lib/whatsapp';
-import { findAssignableBarber, createBooking, markAvailabilityBooked } from '@/lib/supabase';
-import { getServiceDurationMinutes } from '@/lib/services';
+import { createBooking, findAssignableBarber } from '@/lib/supabase';
 
 function validateBookingPayload(payload: Record<string, unknown>) {
   const requiredFields = [
@@ -32,16 +31,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
+    const service = String(payload.service);
+    const timeSlot = String(payload.time_slot);
     const assignment = await findAssignableBarber({
       requested_barber_id: String(payload.barber_id),
       day: String(payload.day),
-      time_slot: String(payload.time_slot),
-      service: String(payload.service),
+      time_slot: timeSlot,
+      service,
     });
 
     if (!assignment) {
       return NextResponse.json(
-        { error: 'No barber is available for this service at the selected time.' },
+        {
+          error:
+            'All barbers are booked for that time. Please choose another time.',
+        },
         { status: 409 },
       );
     }
@@ -49,9 +53,9 @@ export async function POST(req: NextRequest) {
     await createBooking({
       barber_id: assignment.barber.id,
       requested_barber_id: String(payload.barber_id),
-      service: String(payload.service),
+      service,
       day: String(payload.day),
-      time_slot: String(payload.time_slot),
+      time_slot: timeSlot,
       end_time: assignment.end_time,
       duration_minutes: assignment.duration_minutes,
       reassigned: assignment.reassigned,
@@ -60,18 +64,39 @@ export async function POST(req: NextRequest) {
       status: 'pending',
     });
 
-    await markAvailabilityBooked(assignment.slots.map((slot) => slot.id));
+    const barberWhatsAppMessage = [
+      'New booking request',
+      `Customer: ${String(payload.customer_name)}`,
+      `Phone: ${String(payload.customer_phone)}`,
+      `Service: ${service}`,
+      `Date: ${String(payload.day)}`,
+      `Time: ${timeSlot}`,
+      `Barber: ${assignment.barber.name}`,
+      assignment.reassigned ? 'Note: reassigned because the requested barber was busy.' : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
 
-    const customerMessage = assignment.reassigned
-      ? `Your ${String(payload.service)} booking at ${String(payload.time_slot)} has been assigned to ${assignment.barber.name}.`
-      : `Your ${String(payload.service)} booking at ${String(payload.time_slot)} is confirmed with ${assignment.barber.name}.`;
+    const customerWhatsAppMessage = [
+      'Booking confirmation',
+      `Hello ${String(payload.customer_name)},`,
+      `Your ${service} appointment is booked for ${String(payload.day)} at ${timeSlot}.`,
+      `Barber: ${assignment.barber.name}`,
+      `Shop: ${assignment.barber.shop_name}`,
+      assignment.reassigned
+        ? 'Your selected barber was busy, so we assigned the next free barber for that time.'
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     return NextResponse.json({
       ok: true,
       assignedBarberName: assignment.barber.name,
-      durationMinutes: assignment.duration_minutes ?? getServiceDurationMinutes(String(payload.service)),
+      durationMinutes: assignment.duration_minutes,
       wasReassigned: assignment.reassigned,
-      customerWa: buildWhatsAppLink(String(payload.customer_phone), customerMessage),
+      barberWa: buildWhatsAppLink(assignment.barber.phone, barberWhatsAppMessage),
+      customerWa: buildWhatsAppLink(String(payload.customer_phone), customerWhatsAppMessage),
     });
   } catch (error) {
     return NextResponse.json(

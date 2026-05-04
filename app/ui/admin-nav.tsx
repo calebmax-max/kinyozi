@@ -4,7 +4,6 @@ import { LogoutButton } from './logout-button';
 const links = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/dashboard/barbers', label: 'Barbers' },
-  { href: '/dashboard/availability', label: 'Availability' },
 ];
 
 export function AdminNav() {

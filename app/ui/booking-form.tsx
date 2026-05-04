@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { SERVICE_OPTIONS } from '@/lib/services';
 
 type Barber = {
@@ -18,21 +18,41 @@ type SubmissionState =
   | {
       type: 'success';
       message: string;
-      whatsappUrl?: string;
       assignedBarberName?: string;
       wasReassigned?: boolean;
     }
   | { type: 'error'; message: string };
 
 export function BookingForm({ barbers }: BookingFormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, setState] = useState<SubmissionState>({ type: 'idle' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (state.type !== 'success') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setState({ type: 'idle' });
+    }, 10000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [state]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setState({ type: 'idle' });
-    const formData = new FormData(event.currentTarget);
+    const form = formRef.current;
+
+    if (!form) {
+      setState({ type: 'error', message: 'Unable to submit the form right now.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const formData = new FormData(form);
 
     try {
       const response = await fetch('/api/book', {
@@ -55,12 +75,11 @@ export function BookingForm({ barbers }: BookingFormProps) {
 
       setState({
         type: 'success',
-        message: 'Appointment submitted successfully.',
-        whatsappUrl: result.customerWa,
+        message: 'Appointment booked successfully.',
         assignedBarberName: result.assignedBarberName,
         wasReassigned: result.wasReassigned,
       });
-      event.currentTarget.reset();
+      form.reset();
     } catch (error) {
       setState({
         type: 'error',
@@ -72,7 +91,7 @@ export function BookingForm({ barbers }: BookingFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="form-grid">
+    <form ref={formRef} onSubmit={handleSubmit} className="form-grid">
       <div className="field">
         <label htmlFor="barber_id">Barber</label>
         <select id="barber_id" name="barber_id" required defaultValue="">
@@ -138,17 +157,9 @@ export function BookingForm({ barbers }: BookingFormProps) {
           {state.message}{' '}
           {state.assignedBarberName
             ? state.wasReassigned
-              ? `We moved this booking to ${state.assignedBarberName} because the requested barber was busy.`
-              : `Assigned barber: ${state.assignedBarberName}.`
+              ? `Successfully assigned to ${state.assignedBarberName} because your selected barber was busy.`
+              : `Successfully assigned to ${state.assignedBarberName}.`
             : null}
-          {state.whatsappUrl ? (
-            <>
-              {' '}
-              <a href={state.whatsappUrl} target="_blank" rel="noreferrer">
-                Open WhatsApp confirmation
-              </a>
-            </>
-          ) : null}
         </div>
       ) : null}
 

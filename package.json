@@ -9,6 +9,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
+  "engines": {
+    "node": ">=18.17.0"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",
     "lucide-react": "^0.344.0",
@@ -24,6 +27,9 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/react": "19.2.14"
+    "@types/node": "^22.15.31",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "typescript": "^5.8.3"
   }
 }

@@ -51,7 +51,7 @@ export default async function DashboardPage() {
             <div className="empty-state">
               <strong>No bookings yet.</strong>
               <p className="muted">
-                Add barbers and availability in Supabase, then customers can begin booking.
+                Add barbers in Supabase, then customers can begin booking.
               </p>
             </div>
           ) : (
@@ -65,10 +65,8 @@ export default async function DashboardPage() {
                     <th>Date</th>
                     <th>Start</th>
                     <th>End</th>
-                    <th>Requested barber</th>
                     <th>Phone</th>
                     <th>Status</th>
-                    <th>Routing</th>
                     <th>Created</th>
                     <th>Actions</th>
                   </tr>
@@ -82,12 +80,10 @@ export default async function DashboardPage() {
                       <td>{booking.day}</td>
                       <td>{booking.time_slot}</td>
                       <td>{booking.end_time}</td>
-                      <td>{booking.requested_barber_name ?? booking.barber_name ?? '-'}</td>
                       <td>{booking.customer_phone}</td>
                       <td>
                         <span className="pill">{booking.status}</span>
                       </td>
-                      <td>{booking.reassigned ? 'Moved to next barber' : 'Requested barber kept'}</td>
                       <td>
                         {new Date(booking.created_at).toLocaleString('en-KE', {
                           dateStyle: 'medium',

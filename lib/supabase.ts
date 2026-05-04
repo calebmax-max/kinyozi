@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { buildTimeRange, calculateEndTime } from './time';
+import { calculateEndTime, timeToMinutes } from './time';
 import { getServiceDurationMinutes } from './services';
 
 export type Barber = {
@@ -8,15 +8,6 @@ export type Barber = {
   phone: string;
   shop_name: string;
   email: string | null;
-  created_at: string;
-};
-
-export type Availability = {
-  id: string;
-  barber_id: string;
-  day: string;
-  time_slot: string;
-  is_booked: boolean;
   created_at: string;
 };
 
@@ -180,70 +171,6 @@ export async function attachBarberLogin(input: {
   return data as Barber;
 }
 
-export async function listAvailability(barberId: string, day: string): Promise<Availability[]> {
-  if (!hasSupabaseEnv()) {
-    return [];
-  }
-
-  const { data, error } = await getSupabaseAdmin()
-    .from('availability')
-    .select('*')
-    .eq('barber_id', barberId)
-    .eq('day', day)
-    .order('time_slot', { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []) as Availability[];
-}
-
-export async function deleteAvailability(id: string) {
-  const { data, error } = await getSupabaseAdmin()
-    .from('availability')
-    .select('id,is_booked')
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    throw new Error('Availability slot not found');
-  }
-
-  if (data.is_booked) {
-    throw new Error('Booked slots cannot be removed');
-  }
-
-  const { error: deleteError } = await getSupabaseAdmin().from('availability').delete().eq('id', id);
-
-  if (deleteError) {
-    throw new Error(deleteError.message);
-  }
-}
-
-export async function upsertAvailability(input: {
-  barber_id: string;
-  day: string;
-  time_slot: string;
-  is_booked: boolean;
-}) {
-  const { data, error } = await getSupabaseAdmin()
-    .from('availability')
-    .upsert(input, { onConflict: 'barber_id,day,time_slot' })
-    .select('*')
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data;
-}
-
 export async function createBooking(input: Omit<Booking, 'id' | 'created_at'>) {
   let { data, error } = await getSupabaseAdmin()
     .from('bookings')
@@ -277,17 +204,6 @@ export async function createBooking(input: Omit<Booking, 'id' | 'created_at'>) {
   }
 
   return data;
-}
-
-export async function markAvailabilityBooked(ids: string[]) {
-  const { error } = await getSupabaseAdmin()
-    .from('availability')
-    .update({ is_booked: true })
-    .in('id', ids);
-
-  if (error) {
-    throw new Error(error.message);
-  }
 }
 
 export async function listBookings(barberId?: string): Promise<BookingWithBarberName[]> {
@@ -462,6 +378,20 @@ export async function findBarberByEmail(email: string) {
   return (data as BarberAuthRecord | null) ?? null;
 }
 
+function bookingOverlaps(input: {
+  startTime: string;
+  endTime: string;
+  existingStartTime: string;
+  existingEndTime: string;
+}) {
+  const requestedStart = timeToMinutes(input.startTime);
+  const requestedEnd = timeToMinutes(input.endTime);
+  const existingStart = timeToMinutes(input.existingStartTime);
+  const existingEnd = timeToMinutes(input.existingEndTime);
+
+  return requestedStart < existingEnd && existingStart < requestedEnd;
+}
+
 export async function findAssignableBarber(input: {
   requested_barber_id: string;
   day: string;
@@ -480,46 +410,58 @@ export async function findAssignableBarber(input: {
   );
   const orderedBarbers = [
     requestedBarber,
-    ...sameShopBarbers.filter((barber) => barber.id !== input.requested_barber_id),
+    ...sameShopBarbers.filter((barber) => barber.id !== requestedBarber.id),
   ];
   const durationMinutes = getServiceDurationMinutes(input.service);
-  const requiredTimes = buildTimeRange(input.time_slot, durationMinutes);
+  const endTime = calculateEndTime(input.time_slot, durationMinutes);
 
   const { data, error } = await getSupabaseAdmin()
-    .from('availability')
+    .from('bookings')
     .select('*')
     .eq('day', input.day)
     .in(
       'barber_id',
       orderedBarbers.map((barber) => barber.id),
     )
-    .order('time_slot', { ascending: true });
+    .neq('status', 'cancelled');
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const slotsByBarber = new Map<string, Availability[]>();
-
-  for (const slot of (data ?? []) as Availability[]) {
-    const slots = slotsByBarber.get(slot.barber_id) ?? [];
-    slots.push(slot);
-    slotsByBarber.set(slot.barber_id, slots);
-  }
+  const bookings = (data ?? []) as Array<Record<string, unknown>>;
 
   for (const barber of orderedBarbers) {
-    const slots = slotsByBarber.get(barber.id) ?? [];
-    const matchedSlots = requiredTimes
-      .map((time) => slots.find((slot) => slot.time_slot === time && !slot.is_booked))
-      .filter(Boolean) as Availability[];
+    const isBusy = bookings.some((booking) => {
+      if (String(booking.barber_id) !== barber.id) {
+        return false;
+      }
 
-    if (matchedSlots.length === requiredTimes.length) {
+      const existingService = String(booking.service);
+      const existingDuration =
+        typeof booking.duration_minutes === 'number'
+          ? booking.duration_minutes
+          : getServiceDurationMinutes(existingService);
+      const existingStartTime = String(booking.time_slot);
+      const existingEndTime =
+        typeof booking.end_time === 'string'
+          ? booking.end_time
+          : calculateEndTime(existingStartTime, existingDuration);
+
+      return bookingOverlaps({
+        startTime: input.time_slot,
+        endTime,
+        existingStartTime,
+        existingEndTime,
+      });
+    });
+
+    if (!isBusy) {
       return {
         barber,
-        slots: matchedSlots,
         duration_minutes: durationMinutes,
-        end_time: calculateEndTime(input.time_slot, durationMinutes),
-        reassigned: barber.id !== input.requested_barber_id,
+        end_time: endTime,
+        reassigned: barber.id !== requestedBarber.id,
       };
     }
   }

@@ -18,16 +18,6 @@ create table if not exists public.admins (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.availability (
-  id uuid primary key default gen_random_uuid(),
-  barber_id uuid not null references public.barbers(id) on delete cascade,
-  day date not null,
-  time_slot text not null,
-  is_booked boolean not null default false,
-  created_at timestamptz not null default now(),
-  unique (barber_id, day, time_slot)
-);
-
 create table if not exists public.bookings (
   id uuid primary key default gen_random_uuid(),
   barber_id uuid not null references public.barbers(id) on delete cascade,
@@ -52,11 +42,9 @@ alter table public.bookings add column if not exists duration_minutes integer no
 alter table public.bookings add column if not exists reassigned boolean not null default false;
 
 create index if not exists idx_bookings_barber_day on public.bookings (barber_id, day);
-create index if not exists idx_availability_barber_day on public.availability (barber_id, day);
 create index if not exists idx_admins_email on public.admins (email);
 create index if not exists idx_barbers_email on public.barbers (email);
 
 alter table public.barbers enable row level security;
 alter table public.admins enable row level security;
-alter table public.availability enable row level security;
 alter table public.bookings enable row level security;

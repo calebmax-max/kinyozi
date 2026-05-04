@@ -12,15 +12,6 @@ export default async function HomePage() {
     <main className="hero">
       <div className="shell hero-grid">
         <section className="hero-card">
-          <div className="brand">
-            <span>Kinyozi Pro</span>
-            <span>Appointments</span>
-          </div>
-          <div style={{ marginTop: '1rem' }}>
-            <Link className="pill" href="/login">
-              Barber login
-            </Link>
-          </div>
           <h1>Sharper booking for a modern barber shop.</h1>
           <p className="lead">
             Book your next appointment in a few simple steps and get confirmed quickly.
@@ -28,15 +19,14 @@ export default async function HomePage() {
           <div className="hero-points">
             <span>Easy appointment booking</span>
             <span>Quick confirmation</span>
-            <span>Available barber matching</span>
+            <span>Direct barber selection</span>
           </div>
         </section>
 
         <section className="panel">
           <h2>Book an appointment</h2>
           <p className="muted">
-            Fill in your details below to reserve a time. If your chosen barber is busy,
-            we can assign the next available barber so you do not miss your slot.
+            Fill in your details below to reserve a time with the barber you want.
           </p>
           <BookingForm barbers={barbers} />
         </section>
@@ -53,9 +43,9 @@ export default async function HomePage() {
               </p>
             </div>
             <div>
-              <strong>Less waiting</strong>
+              <strong>Simple scheduling</strong>
               <p className="muted">
-                If one barber is occupied, your appointment can be matched to another available barber.
+                Pick your barber, date, and time, then let the shop handle the rest.
               </p>
             </div>
             {isAdmin ? (
@@ -73,7 +63,7 @@ export default async function HomePage() {
               <div>
                 <strong>In-app setup tools</strong>
                 <p className="muted">
-                  Add barbers and manage daily availability without leaving the application.
+                  Add barbers and manage bookings without leaving the application.
                   <Link href="/dashboard/barbers" style={{ marginLeft: '0.45rem', fontWeight: 700 }}>
                     Manage team
                   </Link>

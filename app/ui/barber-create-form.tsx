@@ -18,7 +18,8 @@ export function BarberCreateForm() {
     setIsSubmitting(true);
     setState({ type: 'idle' });
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
     try {
       const response = await fetch('/api/barbers', {
@@ -37,7 +38,7 @@ export function BarberCreateForm() {
       }
 
       setState({ type: 'success', message: 'Barber added successfully.' });
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (error) {
       setState({

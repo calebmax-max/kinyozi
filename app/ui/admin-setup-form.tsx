@@ -12,8 +12,9 @@ export function AdminSetupForm() {
     event.preventDefault();
     setIsSubmitting(true);
     setError('');
+    const form = event.currentTarget;
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
 
     try {
       const response = await fetch('/api/auth/setup-admin', {

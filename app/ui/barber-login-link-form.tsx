@@ -21,7 +21,8 @@ export function BarberLoginLinkForm({ barbers }: BarberLoginLinkFormProps) {
     setIsSubmitting(true);
     setMessage('');
     setError('');
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
     try {
       const response = await fetch('/api/barbers', {
@@ -40,6 +41,7 @@ export function BarberLoginLinkForm({ barbers }: BarberLoginLinkFormProps) {
       }
 
       setMessage('Login added for barber.');
+      form.reset();
       router.refresh();
     } catch (submissionError) {
       setError(
